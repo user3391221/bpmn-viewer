@@ -12,178 +12,202 @@
       font-family: sans-serif;
       transition: background-color 0.3s, color 0.3s;
     }
-
-    #canvas {
-      height: 65%;
-      width: 100%;
-      border: 1px solid #ccc;
-      background-color: #fff;
-      transition: background-color 0.3s, border-color 0.3s;
-    }
-
     #controls {
       padding: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-
     #xmlInput {
       width: 100%;
       height: 200px;
       font-family: monospace;
+      box-sizing: border-box;
       padding: 10px;
-      border: 1px solid #ccc;
       transition: background-color 0.3s, color 0.3s;
+      border: none;
+      resize: vertical;
     }
-
-    .download-buttons {
+    #buttons {
       display: flex;
       gap: 10px;
-      margin: 10px 0;
+      padding: 10px;
+      flex-wrap: wrap;
     }
-
-    .download-buttons button {
-      padding: 6px 12px;
-      font-size: 14px;
-      cursor: pointer;
+    #canvas {
+      height: 65%;
+      width: 100%;
+      border-top: 1px solid #ccc;
+      background-color: #fff;
+      transition: background-color 0.3s, border-color 0.3s;
     }
-
     #themeToggle {
       cursor: pointer;
       font-size: 20px;
       background: none;
       border: none;
     }
-
-    #errorContainer {
+    #errorLog {
       padding: 10px;
-      color: red;
       font-family: monospace;
-      border-top: 1px solid #444;
-      min-height: 20px;
+      color: red;
+      white-space: pre-wrap;
     }
 
     body.dark {
       background-color: #1e1e1e;
       color: #f0f0f0;
     }
-
     body.dark #canvas {
       background-color: #2c2c2c;
       border-color: #444;
     }
-
     body.dark #xmlInput {
       background-color: #333;
       color: #f8f8f8;
       border: 1px solid #555;
     }
-
-    body.dark #errorContainer {
-      color: #ff6565;
+    body.dark #errorLog {
+      color: #ff6b6b;
+    }
+    button {
+      padding: 6px 12px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
 
-<div id="controls">
-  <h3>Пожалуйста, вставьте XML-код схемы ниже:</h3>
-  <button id="themeToggle">🌙</button>
-</div>
+  <div id="controls">
+    <strong>Пожалуйста, вставьте XML-код схемы ниже:</strong>
+    <button id="themeToggle">🌙</button>
+  </div>
 
-<textarea id="xmlInput" placeholder="Вставьте XML сюда..."></textarea>
+  <textarea id="xmlInput" placeholder="Вставьте XML сюда..."></textarea>
 
-<div class="download-buttons">
-  <button id="downloadBPMN">Скачать .bpmn</button>
-  <button id="downloadSVG">Скачать SVG</button>
-  <button id="downloadPNG">Скачать PNG</button>
-  <button id="downloadJPEG">Скачать JPEG</button>
-</div>
+  <div id="buttons">
+    <button id="downloadBPMN">Скачать .bpmn</button>
+    <button id="downloadSVG">Скачать SVG</button>
+    <button id="downloadPNG">Скачать PNG</button>
+    <button id="downloadJPEG">Скачать JPEG</button>
+  </div>
 
-<div id="canvas"></div>
-<div id="errorContainer"></div>
+  <div id="errorLog"></div>
+  <div id="canvas"></div>
 
-<script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
-<script>
-  const bpmnModeler = new BpmnJS({ container: '#canvas' });
-  const xmlInput = document.getElementById('xmlInput');
-  const errorContainer = document.getElementById('errorContainer');
-  let debounceTimer;
+  <script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
+  <script>
+    const bpmnModeler = new BpmnJS({ container: '#canvas' });
+    const xmlInput = document.getElementById('xmlInput');
+    const errorLog = document.getElementById('errorLog');
 
-  xmlInput.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(renderDiagram, 500);
-  });
+    let debounceTimer;
+    xmlInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(renderDiagram, 500);
+    });
 
-  async function renderDiagram() {
-    const xml = xmlInput.value;
-    if (!xml.trim()) return;
-    try {
-      const { warnings } = await bpmnModeler.importXML(xml);
-      const canvas = bpmnModeler.get('canvas');
-      canvas.zoom('fit-viewport');
+    async function renderDiagram() {
+      const xml = xmlInput.value;
+      errorLog.textContent = '';
+      if (!xml.trim()) return;
 
-      if (warnings && warnings.length) {
-        errorContainer.innerText = warnings.map(w => w.message).join('\n');
-      } else {
-        errorContainer.innerText = 'Ошибок не обнаружено.';
+      try {
+        await bpmnModeler.importXML(xml);
+        const canvas = bpmnModeler.get('canvas');
+        canvas.zoom('fit-viewport');
+      } catch (err) {
+        console.error('Ошибка при загрузке XML:', err);
+        errorLog.textContent = `Ошибка: ${err.message}`;
       }
-    } catch (err) {
-      errorContainer.innerText = 'Ошибка при загрузке XML:\n' + (err.message || err);
-      console.error(err);
     }
-  }
 
-  // Theme toggle
-  document.getElementById('themeToggle').addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-  });
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+    });
 
-  // Download BPMN
-  document.getElementById('downloadBPMN').addEventListener('click', async () => {
-    try {
-      const result = await bpmnModeler.saveXML({ format: true });
-      downloadFile(result.xml, 'diagram.bpmn', 'application/xml');
-    } catch (e) {
-      alert('Ошибка при сохранении BPMN: ' + e.message);
+    function download(data, filename, type) {
+      const blob = new Blob([data], { type });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
-  });
 
-  // Download SVG
-  document.getElementById('downloadSVG').addEventListener('click', async () => {
-    try {
-      const result = await bpmnModeler.saveSVG();
-      downloadFile(result.svg, 'diagram.svg', 'image/svg+xml');
-    } catch (e) {
-      alert('Ошибка при сохранении SVG: ' + e.message);
-    }
-  });
+    document.getElementById('downloadBPMN').addEventListener('click', async () => {
+      try {
+        const { xml } = await bpmnModeler.saveXML({ format: true });
+        download(xml, 'diagram.bpmn', 'application/xml');
+      } catch (err) {
+        alert('Ошибка экспорта BPMN: ' + err.message);
+      }
+    });
 
-  // Download PNG
-  document.getElementById('downloadPNG').addEventListener('click', () => {
-    const canvasEl = document.querySelector('canvas');
-    const data = canvasEl.toDataURL('image/png');
-    downloadFile(data, 'diagram.png');
-  });
+    document.getElementById('downloadSVG').addEventListener('click', async () => {
+      try {
+        const { svg } = await bpmnModeler.saveSVG();
+        download(svg, 'diagram.svg', 'image/svg+xml');
+      } catch (err) {
+        alert('Ошибка экспорта SVG: ' + err.message);
+      }
+    });
 
-  // Download JPEG
-  document.getElementById('downloadJPEG').addEventListener('click', () => {
-    const canvasEl = document.querySelector('canvas');
-    const data = canvasEl.toDataURL('image/jpeg');
-    downloadFile(data, 'diagram.jpeg');
-  });
+    document.getElementById('downloadPNG').addEventListener('click', async () => {
+      try {
+        const { svg } = await bpmnModeler.saveSVG();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob(blob => {
+            const pngUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = 'diagram.png';
+            a.click();
+            URL.revokeObjectURL(pngUrl);
+          });
+        };
+        img.src = url;
+      } catch (err) {
+        alert('Ошибка экспорта PNG: ' + err.message);
+      }
+    });
 
-  function downloadFile(data, filename, type = '') {
-    const a = document.createElement('a');
-    a.href = data;
-    a.download = filename;
-    if (type) a.type = type;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-</script>
-
+    document.getElementById('downloadJPEG').addEventListener('click', async () => {
+      try {
+        const { svg } = await bpmnModeler.saveSVG();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob(blob => {
+            const jpegUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = jpegUrl;
+            a.download = 'diagram.jpeg';
+            a.click();
+            URL.revokeObjectURL(jpegUrl);
+          }, 'image/jpeg');
+        };
+        img.src = url;
+      } catch (err) {
+        alert('Ошибка экспорта JPEG: ' + err.message);
+      }
+    });
+  </script>
 </body>
 </html>
