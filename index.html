@@ -24,9 +24,9 @@
       font-family: monospace;
       box-sizing: border-box;
       padding: 10px;
-      transition: background-color 0.3s, color 0.3s;
       border: none;
       resize: vertical;
+      transition: background-color 0.3s, color 0.3s;
     }
     #buttons {
       display: flex;
@@ -35,7 +35,7 @@
       flex-wrap: wrap;
     }
     #canvas {
-      height: 65%;
+      height: 60%;
       width: 100%;
       border-top: 1px solid #ccc;
       background-color: #fff;
@@ -50,10 +50,12 @@
     #errorLog {
       padding: 10px;
       font-family: monospace;
+      font-size: 14px;
       color: red;
       white-space: pre-wrap;
+      border-top: 1px solid #ccc;
+      min-height: 25px;
     }
-
     body.dark {
       background-color: #1e1e1e;
       color: #f0f0f0;
@@ -69,6 +71,7 @@
     }
     body.dark #errorLog {
       color: #ff6b6b;
+      border-color: #444;
     }
     button {
       padding: 6px 12px;
@@ -94,7 +97,7 @@
     <button id="downloadJPEG">Скачать JPEG</button>
   </div>
 
-  <div id="errorLog"></div>
+  <div id="errorLog">Здесь будут ошибки и предупреждения...</div>
   <div id="canvas"></div>
 
   <script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
@@ -118,9 +121,10 @@
         await bpmnModeler.importXML(xml);
         const canvas = bpmnModeler.get('canvas');
         canvas.zoom('fit-viewport');
+        errorLog.textContent = 'Ошибок не обнаружено.';
       } catch (err) {
         console.error('Ошибка при загрузке XML:', err);
-        errorLog.textContent = `Ошибка: ${err.message}`;
+        errorLog.textContent = `❌ Ошибка: ${err.message}`;
       }
     }
 
