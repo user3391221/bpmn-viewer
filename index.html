@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <title>BPMN Viewer</title>
@@ -10,11 +10,14 @@
       height: 100%;
       margin: 0;
       font-family: sans-serif;
+      transition: background-color 0.3s, color 0.3s;
     }
     #canvas {
-      height: 70vh;
+      height: 70%;
       width: 100%;
       border: 1px solid #ccc;
+      background-color: #fff;
+      transition: background-color 0.3s, border-color 0.3s;
     }
     #controls {
       padding: 10px;
@@ -23,120 +26,72 @@
       width: 100%;
       height: 200px;
       font-family: monospace;
+      transition: background-color 0.3s, color 0.3s;
     }
-    button {
-      margin-top: 10px;
-      margin-right: 10px;
-      padding: 8px 16px;
+    #themeToggle {
+      float: right;
+      margin-top: -30px;
     }
-    input[type="file"] {
-      margin-top: 10px;
+
+    body.dark {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+    }
+    body.dark #canvas {
+      background-color: #2c2c2c;
+      border-color: #444;
+    }
+    body.dark textarea {
+      background-color: #333;
+      color: #f8f8f8;
+      border: 1px solid #555;
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <h3>Вставь сюда XML от ассистента:</h3>
-    <textarea id="xmlInput"></textarea><br>
-    <button id="renderBtn">Показать схему</button>
-    <button id="copyBtn">Скопировать XML из схемы</button>
-    <button id="downloadBtn">Скачать как .bpmn</button>
-    <input type="file" id="uploadFile" accept=".bpmn, .xml">
-  </div>
-  <div id="canvas"></div>
 
-  <script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
-  <script>
-    const bpmnModeler = new BpmnJS({ container: '#canvas' });
+<div id="controls">
+  <label for="themeToggle">
+    <input type="checkbox" id="themeToggle"> Тёмная тема
+  </label>
+  <h3>Пожалуйста, вставьте XML-код схемы ниже:</h3>
+  <textarea id="xmlInput"></textarea>
+</div>
 
-    async function renderDiagram(xml) {
-      try {
-        await bpmnModeler.importXML(xml);
-        const canvas = bpmnModeler.get('canvas');
-        canvas.zoom('fit-viewport');
-      } catch (err) {
-        alert('Ошибка при загрузке XML: ' + err.message);
-      }
+<div id="canvas"></div>
+
+<script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
+<script>
+  const bpmnModeler = new BpmnJS({
+    container: '#canvas'
+  });
+
+  const xmlInput = document.getElementById('xmlInput');
+  let debounceTimer;
+
+  xmlInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(renderDiagram, 500);
+  });
+
+  async function renderDiagram() {
+    const xml = xmlInput.value;
+    if (!xml.trim()) return;
+    try {
+      await bpmnModeler.importXML(xml);
+      const canvas = bpmnModeler.get('canvas');
+      canvas.zoom('fit-viewport');
+    } catch (err) {
+      console.error('Ошибка при загрузке XML:', err);
     }
+  }
 
-    document.getElementById('renderBtn').addEventListener('click', () => {
-      const xml = document.getElementById('xmlInput').value;
-      renderDiagram(xml);
-    });
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  themeToggle.addEventListener('change', () => {
+    document.body.classList.toggle('dark', themeToggle.checked);
+  });
+</script>
 
-    document.getElementById('copyBtn').addEventListener('click', async () => {
-      try {
-        const result = await bpmnModeler.saveXML({ format: true });
-        navigator.clipboard.writeText(result.xml);
-        alert('XML скопирован в буфер обмена');
-      } catch (err) {
-        alert('Не удалось сохранить XML: ' + err.message);
-      }
-    });
-
-    document.getElementById('downloadBtn').addEventListener('click', async () => {
-      try {
-        const result = await bpmnModeler.saveXML({ format: true });
-        const blob = new Blob([result.xml], { type: 'application/xml' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'diagram.bpmn';
-        link.click();
-      } catch (err) {
-        alert('Не удалось скачать файл: ' + err.message);
-      }
-    });
-
-    document.getElementById('uploadFile').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        document.getElementById('xmlInput').value = reader.result;
-        renderDiagram(reader.result);
-      };
-      reader.readAsText(file);
-    });
-
-    const exampleXml = `<?xml version="1.0" encoding="UTF-8"?>
-    <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                      xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-                      xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-                      xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-                      id="Definitions_1"
-                      targetNamespace="http://bpmn.io/schema/bpmn">
-      <bpmn:process id="Process_1" isExecutable="false">
-        <bpmn:startEvent id="StartEvent_1" name="Start" />
-        <bpmn:task id="Task_1" name="Do something" />
-        <bpmn:endEvent id="EndEvent_1" name="End" />
-        <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_1" />
-        <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_1" targetRef="EndEvent_1" />
-      </bpmn:process>
-      <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-        <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
-          <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
-            <dc:Bounds x="173" y="102" width="36" height="36" />
-          </bpmndi:BPMNShape>
-          <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1">
-            <dc:Bounds x="259" y="80" width="100" height="80" />
-          </bpmndi:BPMNShape>
-          <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
-            <dc:Bounds x="409" y="102" width="36" height="36" />
-          </bpmndi:BPMNShape>
-          <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
-            <di:waypoint x="209" y="120" />
-            <di:waypoint x="259" y="120" />
-          </bpmndi:BPMNEdge>
-          <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
-            <di:waypoint x="359" y="120" />
-            <di:waypoint x="409" y="120" />
-          </bpmndi:BPMNEdge>
-        </bpmndi:BPMNPlane>
-      </bpmndi:BPMNDiagram>
-    </bpmn:definitions>`;
-
-    document.getElementById('xmlInput').value = exampleXml;
-    renderDiagram(exampleXml);
-  </script>
 </body>
 </html>
