@@ -79,6 +79,18 @@
       cursor: pointer;
       font-size: 14px;
     }
+    /* Синяя кнопка выхода */
+    #exitSubprocess {
+      display: none; 
+      background-color: #1976d2; /* насыщенный синий */
+      color: #fff;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    #exitSubprocess:hover {
+      background-color: #0d47a1; /* тёмно-синий при наведении */
+    }
   </style>
 </head>
 <body>
@@ -95,6 +107,7 @@
     <button id="downloadSVG">Скачать SVG</button>
     <button id="downloadPNG">Скачать PNG</button>
     <button id="downloadJPEG">Скачать JPEG</button>
+    <button id="exitSubprocess">Выйти из подпроцесса</button>
   </div>
 
   <div id="errorLog">Здесь будут ошибки и предупреждения...</div>
@@ -102,9 +115,15 @@
 
   <script src="https://unpkg.com/bpmn-js@11.5.0/dist/bpmn-modeler.development.js"></script>
   <script>
-    const bpmnModeler = new BpmnJS({ container: '#canvas' });
+    const bpmnModeler = new BpmnJS({
+      container: '#canvas',
+      keyboard: { bindTo: window }
+    });
+
     const xmlInput = document.getElementById('xmlInput');
     const errorLog = document.getElementById('errorLog');
+    const exitButton = document.getElementById('exitSubprocess');
+    const eventBus = bpmnModeler.get('eventBus');
 
     let debounceTimer;
     xmlInput.addEventListener('input', () => {
@@ -122,12 +141,48 @@
         const canvas = bpmnModeler.get('canvas');
         canvas.zoom('fit-viewport');
         errorLog.textContent = 'Ошибок не обнаружено.';
+
+        // показываем кнопку только при входе в подпроцесс
+        eventBus.on('root.set', ({ element }) => {
+          if (element.type === 'bpmn:SubProcess') {
+            exitButton.style.display = 'inline-block';
+          } else {
+            exitButton.style.display = 'none';
+          }
+        });
+
       } catch (err) {
         console.error('Ошибка при загрузке XML:', err);
         errorLog.textContent = `❌ Ошибка: ${err.message}`;
       }
     }
 
+    // Синхронизация XML при изменениях
+    bpmnModeler.on('commandStack.changed', async () => {
+      try {
+        const { xml } = await bpmnModeler.saveXML({ format: true });
+        xmlInput.value = xml;
+      } catch (err) {
+        console.error('Ошибка при сохранении XML:', err);
+      }
+    });
+
+    // Кнопка "Выйти из подпроцесса"
+    exitButton.addEventListener('click', async () => {
+      try {
+        const { xml } = await bpmnModeler.saveXML({ format: true });
+        await bpmnModeler.importXML(xml);
+        const canvas = bpmnModeler.get('canvas');
+        canvas.zoom('fit-viewport');
+        errorLog.textContent = 'Возврат к основной схеме выполнен.';
+        exitButton.style.display = 'none';
+      } catch (err) {
+        console.error('Ошибка при возврате к основной схеме:', err);
+        errorLog.textContent = `❌ Ошибка: ${err.message}`;
+      }
+    });
+
+    // Тёмная тема
     document.getElementById('themeToggle').addEventListener('click', () => {
       document.body.classList.toggle('dark');
     });
